@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@theme {
+  --color-monad-purple: #C026D3;
+  --color-monad-neon: #E879F9;
+  --color-midnight: #0E0C15;
+  --color-glass-border: rgba(255, 255, 255, 0.15);
+  --color-glass-bg: rgba(10, 10, 18, 0.8);
+}
+
+:root {
+  --background: #0E0C15;
+  --foreground: #ffffff;
+}
+
+body {
+  background-color: #0E0C15 !important;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+/* Swirling Animated Border Frame */
+.cyber-frame {
+  position: relative;
+  border-radius: 2rem;
+  background: #0E0C15;
+  padding: 2px;
+  overflow: hidden;
+}
+
+.cyber-frame::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(transparent,
+      #C026D3 10%,
+      transparent 20%,
+      transparent 40%,
+      #E879F9 50%,
+      transparent 60%);
+  animation: rotate 10s linear infinite;
+  z-index: 0;
+}
+
+.cyber-frame::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: #0E0C15;
+  border-radius: 1.8rem;
+  z-index: 1;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Glassmorphism Panels */
+.glass-panel {
+  background: rgba(14, 12, 21, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.4);
+}
+
+/* Pill Buttons */
+.pill-button {
+  border-radius: 9999px;
+  padding: 0.75rem 2.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.pill-button.active {
+  background: #C026D3;
+  border-color: #E879F9;
+  box-shadow: 0 0 25px rgba(192, 38, 211, 0.6), inset 0 0 10px rgba(232, 121, 249, 0.4);
+}
+
+/* On Fire Text Effect */
+.text-fire {
+  background: linear-gradient(0deg, #f97316 0%, #fbbf24 50%, #ffffff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.6));
+}
+
+.audit-log-floating {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  color: #a1a1aa;
+}
