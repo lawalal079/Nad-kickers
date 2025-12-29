@@ -89,6 +89,7 @@ export function useMonadGame(contractAddress: `0x${string}`) {
     const [lastResult, setLastResult] = useState<{ isGoal: boolean; goalieMove: number; windStrength: number; actualMove: number } | null>(null);
     const [level, setLevel] = useState(1);
     const [multiplier, setMultiplier] = useState(1.0);
+    const [txState, setTxState] = useState<"idle" | "awaiting-signature" | "confirming" | "error">("idle");
 
     const { data: fee } = useReadContract({
         address: contractAddress,
@@ -105,7 +106,7 @@ export function useMonadGame(contractAddress: `0x${string}`) {
     });
 
     // WaitForTransactionReceipt to get the sequence number
-    const { data: receipt } = useWaitForTransactionReceipt({
+    const { data: receipt, isFetching: isReceiptFetching } = useWaitForTransactionReceipt({
         hash: txHash,
     });
 
@@ -121,6 +122,7 @@ export function useMonadGame(contractAddress: `0x${string}`) {
     // 1. When transaction is confirmed, extract sequenceNumber
     useEffect(() => {
         if (receipt) {
+            console.log("Transaction confirmed, parsing logs...", receipt.transactionHash);
             const logs = parseEventLogs({
                 abi: ABI,
                 logs: receipt.logs as Log[],
@@ -128,9 +130,14 @@ export function useMonadGame(contractAddress: `0x${string}`) {
             });
             if (logs.length > 0) {
                 const seq = (logs[0] as any).args.sequenceNumber;
+                console.log("KickRequested event found! Sequence ID:", seq.toString());
                 setSequenceNumber(seq);
                 setIsPolling(true);
                 setGameState("processing");
+                setTxState("idle");
+            } else {
+                console.error("No KickRequested event found in receipt logs");
+                setTxState("error");
             }
         }
     }, [receipt]);
@@ -201,31 +208,32 @@ export function useMonadGame(contractAddress: `0x${string}`) {
     }, [gameState]);
 
     const kick = useCallback(async (playerMove: number) => {
-        if (!address) {
-            throw new Error("Wallet not connected");
-        }
-        if (!fee) {
-            throw new Error("Game fee not loaded. Check your network connection.");
-        }
+        if (!address) throw new Error("Wallet not connected");
+        if (!fee) throw new Error("Game fee not loaded. Check your network connection.");
 
+        console.log("Initializing kick...", { playerMove, fee: fee.toString(), contractAddress });
         setGameState("kicking");
         setLastResult(null);
         setSequenceNumber(null);
         setIsPolling(false);
+        setTxState("awaiting-signature");
         resetWrite();
 
         try {
-            await writeContractAsync({
+            const hash = await writeContractAsync({
                 address: contractAddress,
                 abi: ABI,
                 functionName: "requestKick",
                 args: [playerMove],
                 value: fee as bigint,
             });
+            console.log("Transaction submitted:", hash);
+            setTxState("confirming");
         } catch (error) {
             console.error("Kick execution failed:", error);
             setGameState("idle");
-            throw error; // Re-throw so GameBoard can catch it if needed
+            setTxState("error");
+            throw error;
         }
     }, [address, fee, contractAddress, writeContractAsync, resetWrite]);
 
@@ -238,6 +246,7 @@ export function useMonadGame(contractAddress: `0x${string}`) {
         level,
         multiplier,
         sequenceNumber,
-        writeError
+        writeError,
+        txState
     };
 }

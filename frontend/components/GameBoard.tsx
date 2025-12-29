@@ -19,7 +19,7 @@ function cn(...inputs: ClassValue[]) {
 const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "") as `0x${string}`;
 
 export default function GameBoard() {
-    const { gameState, lastResult, stats, kick, fee, level, multiplier, sequenceNumber, writeError } = useMonadGame(CONTRACT_ADDRESS);
+    const { gameState, lastResult, stats, kick, fee, level, multiplier, sequenceNumber, writeError, txState } = useMonadGame(CONTRACT_ADDRESS);
     const { chain, isConnected } = useAccount();
     const { switchChain, isPending: isSwitching } = useSwitchChain();
 
@@ -44,11 +44,38 @@ export default function GameBoard() {
             setLastPlayerMove(move);
             await kick(move);
         } catch (err: any) {
+            // Toast is handled in useMonadGame logic via useEffect checks if needed, 
+            // but we can also catch immediate throw errors here.
             toast.error("Transaction Failed", {
                 description: err.shortMessage || err.message || "Failed to request kick on-chain.",
             });
         }
     };
+
+    // Transaction State Feedback
+    useEffect(() => {
+        if (txState === "awaiting-signature") {
+            toast.loading("Waiting for Wallet...", {
+                id: "tx-status",
+                description: "Please confirm the transaction in your wallet.",
+                duration: 10000,
+            });
+        } else if (txState === "confirming") {
+            toast.loading("Confirming on Monad...", {
+                id: "tx-status",
+                description: "Transaction submitted. Waiting for block inclusion...",
+                duration: 20000,
+            });
+        } else if (txState === "idle" && gameState === "processing") {
+            toast.success("Kick Confirmed!", {
+                id: "tx-status",
+                description: "Verifying entropy with Pyth...",
+                duration: 3000,
+            });
+        } else if (txState === "error") {
+            toast.dismiss("tx-status");
+        }
+    }, [txState, gameState]);
 
     // Handle Confetti on Goal
     useEffect(() => {
@@ -355,9 +382,12 @@ export default function GameBoard() {
                 {/* Footer Info (High Performance Look) */}
                 <div className="w-full mt-12 flex justify-between items-center px-8">
                     <div className="flex items-center gap-4 bg-white/5 px-6 py-2 rounded-2xl border border-white/5">
-                        <RefreshCcw className={cn("w-4 h-4 text-monad-neon", (gameState === "processing" || gameState === "kicking") && "animate-spin")} />
+                        <RefreshCcw className={cn("w-4 h-4 text-monad-neon", (gameState === "processing" || gameState === "kicking" || txState === "confirming") && "animate-spin")} />
                         <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-300">
-                            {gameState === "idle" ? "ARCADE READY" : gameState === "processing" ? "VERIFYING ENTROPY" : "SYNCING DATA"}
+                            {txState === "awaiting-signature" ? "SIGN TRANSACTION" :
+                                txState === "confirming" ? "CONFIRMING on-chain" :
+                                    gameState === "idle" ? "ARCADE READY" :
+                                        gameState === "processing" ? "VERIFYING ENTROPY" : "SYNCING DATA"}
                         </span>
                     </div>
                     <div className="flex items-center gap-6">
@@ -367,6 +397,13 @@ export default function GameBoard() {
                             <span className="text-monad-neon font-black">{fee ? `${(Number(fee) / 1e18).toFixed(4)} MON` : "WAIT..."}</span>
                         </div>
                     </div>
+                </div>
+
+                {/* Diagnostics Panel (Visible on hover of footer) */}
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 opacity-0 hover:opacity-100 transition-opacity p-2 bg-black/80 rounded text-[8px] font-mono text-gray-500 pointer-events-auto">
+                    <p>Contract: {CONTRACT_ADDRESS.slice(0, 6)}...{CONTRACT_ADDRESS.slice(-4)}</p>
+                    <p>Network: {chain?.id} ({isWrongChain ? "Wrong" : "OK"})</p>
+                    <p>TxState: {txState}</p>
                 </div>
 
                 <style jsx global>{`

@@ -9,8 +9,9 @@ import { injected } from "wagmi/connectors";
 const config = createConfig({
     chains: [monadTestnet],
     connectors: [injected()],
+    ssr: true,
     transports: {
-        [monadTestnet.id]: http(),
+        [monadTestnet.id]: http(monadTestnet.rpcUrls.default.http[0]),
     },
 });
 
