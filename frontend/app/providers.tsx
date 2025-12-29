@@ -8,7 +8,7 @@ import { injected } from "wagmi/connectors";
 
 const config = createConfig({
     chains: [monadTestnet],
-    connectors: [injected()],
+    connectors: [injected({ target: "metaMask" })],
     ssr: true,
     transports: {
         [monadTestnet.id]: http(monadTestnet.rpcUrls.default.http[0]),
