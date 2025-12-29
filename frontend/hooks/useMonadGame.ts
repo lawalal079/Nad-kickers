@@ -226,6 +226,7 @@ export function useMonadGame(contractAddress: `0x${string}`) {
                 functionName: "requestKick",
                 args: [playerMove],
                 value: fee as bigint,
+                gas: BigInt(300000), // Force gas limit to skip potentially hanging estimateGas
             });
             console.log("Transaction submitted:", hash);
             setTxState("confirming");
