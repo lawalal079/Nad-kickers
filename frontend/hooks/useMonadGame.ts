@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
     useAccount,
-    useAccount,
     useWaitForTransactionReceipt,
     useReadContract,
     usePublicClient,
@@ -77,8 +76,6 @@ const ABI = [
 ] as const;
 
 export function useMonadGame(contractAddress: `0x${string}`) {
-    const { address } = useAccount();
-    const publicClient = usePublicClient();
     const { address } = useAccount();
     const publicClient = usePublicClient();
     const { data: walletClient } = useWalletClient();
