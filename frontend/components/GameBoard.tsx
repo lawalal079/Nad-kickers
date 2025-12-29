@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useMonadGame } from "@/hooks/useMonadGame";
 import { useAccount, useSwitchChain } from "wagmi";
+import { toast } from "sonner";
 import { monadTestnet } from "@/constants/networks";
 import { motion, AnimatePresence } from "framer-motion";
 import RoadThree from "./RoadThree";
@@ -18,7 +19,7 @@ function cn(...inputs: ClassValue[]) {
 const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "") as `0x${string}`;
 
 export default function GameBoard() {
-    const { gameState, lastResult, stats, kick, fee, level, multiplier, sequenceNumber } = useMonadGame(CONTRACT_ADDRESS);
+    const { gameState, lastResult, stats, kick, fee, level, multiplier, sequenceNumber, writeError } = useMonadGame(CONTRACT_ADDRESS);
     const { chain, isConnected } = useAccount();
     const { switchChain, isPending: isSwitching } = useSwitchChain();
 
@@ -38,9 +39,15 @@ export default function GameBoard() {
         switchChain({ chainId: monadTestnet.id });
     };
 
-    const handleKick = (move: number) => {
-        setLastPlayerMove(move);
-        kick(move);
+    const handleKick = async (move: number) => {
+        try {
+            setLastPlayerMove(move);
+            await kick(move);
+        } catch (err: any) {
+            toast.error("Transaction Failed", {
+                description: err.shortMessage || err.message || "Failed to request kick on-chain.",
+            });
+        }
     };
 
     // Handle Confetti on Goal

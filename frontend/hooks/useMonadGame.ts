@@ -78,7 +78,7 @@ const ABI = [
 export function useMonadGame(contractAddress: `0x${string}`) {
     const { address } = useAccount();
     const publicClient = usePublicClient();
-    const { writeContractAsync, data: txHash } = useWriteContract();
+    const { writeContractAsync, data: txHash, error: writeError, reset: resetWrite } = useWriteContract();
 
     // Polling State
     const [sequenceNumber, setSequenceNumber] = useState<bigint | null>(null);
@@ -201,12 +201,18 @@ export function useMonadGame(contractAddress: `0x${string}`) {
     }, [gameState]);
 
     const kick = useCallback(async (playerMove: number) => {
-        if (!address || !fee) return;
+        if (!address) {
+            throw new Error("Wallet not connected");
+        }
+        if (!fee) {
+            throw new Error("Game fee not loaded. Check your network connection.");
+        }
 
         setGameState("kicking");
         setLastResult(null);
         setSequenceNumber(null);
         setIsPolling(false);
+        resetWrite();
 
         try {
             await writeContractAsync({
@@ -217,10 +223,11 @@ export function useMonadGame(contractAddress: `0x${string}`) {
                 value: fee as bigint,
             });
         } catch (error) {
-            console.error("Kick failed:", error);
+            console.error("Kick execution failed:", error);
             setGameState("idle");
+            throw error; // Re-throw so GameBoard can catch it if needed
         }
-    }, [address, fee, contractAddress, writeContractAsync]);
+    }, [address, fee, contractAddress, writeContractAsync, resetWrite]);
 
     return {
         gameState,
@@ -230,6 +237,7 @@ export function useMonadGame(contractAddress: `0x${string}`) {
         fee,
         level,
         multiplier,
-        sequenceNumber
+        sequenceNumber,
+        writeError
     };
 }
