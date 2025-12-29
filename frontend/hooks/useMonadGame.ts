@@ -94,6 +94,12 @@ export function useMonadGame(contractAddress: `0x${string}`) {
     const [level, setLevel] = useState(1);
     const [multiplier, setMultiplier] = useState(1.0);
     const [txState, setTxState] = useState<"idle" | "awaiting-signature" | "confirming" | "error">("idle");
+    const [debugLogs, setDebugLogs] = useState<string[]>([]);
+
+    const addLog = useCallback((msg: string) => {
+        console.log(msg);
+        setDebugLogs(prev => [msg, ...prev].slice(0, 10)); // Keep last 10 logs
+    }, []);
 
     const { data: fee } = useReadContract({
         address: contractAddress,
@@ -134,17 +140,17 @@ export function useMonadGame(contractAddress: `0x${string}`) {
             });
             if (logs.length > 0) {
                 const seq = (logs[0] as any).args.sequenceNumber;
-                console.log("KickRequested event found! Sequence ID:", seq.toString());
+                addLog(`KickRequested event found! Seq: ${seq.toString()}`);
                 setSequenceNumber(seq);
                 setIsPolling(true);
                 setGameState("processing");
                 setTxState("idle");
             } else {
-                console.error("No KickRequested event found in receipt logs");
+                addLog("Error: No KickRequested event in receipt");
                 setTxState("error");
             }
         }
-    }, [receipt]);
+    }, [receipt, addLog]);
 
     // 2. Poll for the result
     useEffect(() => {
@@ -216,7 +222,7 @@ export function useMonadGame(contractAddress: `0x${string}`) {
         if (!fee) throw new Error("Game fee not loaded. Check your network connection.");
         if (!walletClient) throw new Error("Wallet not accessible. Please reconnect.");
 
-        console.log("Initializing kick...", { playerMove, fee: fee.toString(), contractAddress });
+        addLog(`Init kick. Move: ${playerMove}, Fee: ${fee.toString()}`);
         setGameState("kicking");
         setLastResult(null);
         setSequenceNumber(null);
@@ -232,15 +238,16 @@ export function useMonadGame(contractAddress: `0x${string}`) {
                 functionName: "requestKick",
                 args: [playerMove],
                 value: fee as bigint,
-                gas: BigInt(300000), // Force gas limit
+                gas: BigInt(500000), // Bumped gas limit to 500k
                 chain: walletClient.chain,
                 account: address
             });
 
-            console.log("Transaction submitted:", hash);
-            setTxHash(hash); // We need to track this state manually now
+            addLog(`Tx submitted: ${hash}`);
+            setTxHash(hash);
             setTxState("confirming");
         } catch (error: any) {
+            addLog(`Kick failed: ${error.message || error}`);
             console.error("Kick execution failed:", error);
             setGameState("idle");
             setTxState("error");
@@ -259,6 +266,8 @@ export function useMonadGame(contractAddress: `0x${string}`) {
         multiplier,
         sequenceNumber,
         writeError,
-        txState
+        txState,
+        debugLogs,
+        txHash
     };
 }

@@ -19,7 +19,7 @@ function cn(...inputs: ClassValue[]) {
 const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "") as `0x${string}`;
 
 export default function GameBoard() {
-    const { gameState, lastResult, stats, kick, fee, level, multiplier, sequenceNumber, writeError, txState } = useMonadGame(CONTRACT_ADDRESS);
+    const { gameState, lastResult, stats, kick, fee, level, multiplier, sequenceNumber, writeError, txState, debugLogs, txHash } = useMonadGame(CONTRACT_ADDRESS);
     const { chain, isConnected } = useAccount();
     const { switchChain, isPending: isSwitching } = useSwitchChain();
 
@@ -63,7 +63,21 @@ export default function GameBoard() {
         } else if (txState === "confirming") {
             toast.loading("Confirming on Monad...", {
                 id: "tx-status",
-                description: "Transaction submitted. Waiting for block inclusion...",
+                description: (
+                    <div className="flex flex-col gap-1">
+                        <span>Transaction submitted. Waiting for block inclusion...</span>
+                        {txHash && (
+                            <a
+                                href={`https://testnet.monadexplorer.com/tx/${txHash}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-monad-neon underline text-xs hover:text-white"
+                            >
+                                View Transaction ↗
+                            </a>
+                        )}
+                    </div>
+                ),
                 duration: 20000,
             });
         } else if (txState === "idle" && gameState === "processing") {
@@ -404,6 +418,11 @@ export default function GameBoard() {
                     <p>Contract: {CONTRACT_ADDRESS.slice(0, 6)}...{CONTRACT_ADDRESS.slice(-4)}</p>
                     <p>Network: {chain?.id} ({isWrongChain ? "Wrong" : "OK"})</p>
                     <p>TxState: {txState}</p>
+                    <div className="mt-2 border-t border-white/10 pt-1">
+                        {debugLogs.map((log, i) => (
+                            <div key={i} className="opacity-70">> {log}</div>
+                        ))}
+                    </div>
                 </div>
 
                 <style jsx global>{`
