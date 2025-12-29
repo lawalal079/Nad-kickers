@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
     useAccount,
+    useWriteContract,
     useWaitForTransactionReceipt,
     useReadContract,
-    usePublicClient,
-    useWalletClient
+    usePublicClient
 } from "wagmi";
-import { parseEventLogs, encodeFunctionData, type Log } from "viem";
+import { parseEventLogs, type Log } from "viem";
 
 export const PENALTY_SHOOTOUT_ABI = [
     "function requestKick(uint8 playerMove) external payable",
@@ -78,13 +78,10 @@ const ABI = [
 export function useMonadGame(contractAddress: `0x${string}`) {
     const { address } = useAccount();
     const publicClient = usePublicClient();
-    const { data: walletClient } = useWalletClient();
-
-    // We remove useWriteContract to avoid simulation overhead issues
-    const [writeError, setWriteError] = useState<Error | null>(null);
+    const { writeContractAsync, data: txHash, error: writeError, reset: resetWrite } = useWriteContract();
 
     // Polling State
-    const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
+    // txHash comes from useWriteContract now
     const [sequenceNumber, setSequenceNumber] = useState<bigint | null>(null);
     const [isPolling, setIsPolling] = useState(false);
     const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -220,7 +217,6 @@ export function useMonadGame(contractAddress: `0x${string}`) {
     const kick = useCallback(async (playerMove: number) => {
         if (!address) throw new Error("Wallet not connected");
         if (!fee) throw new Error("Game fee not loaded. Check your network connection.");
-        if (!walletClient) throw new Error("Wallet not accessible. Please reconnect.");
 
         addLog(`Init kick. Move: ${playerMove}, Fee: ${fee.toString()}`);
         setGameState("kicking");
@@ -228,67 +224,29 @@ export function useMonadGame(contractAddress: `0x${string}`) {
         setSequenceNumber(null);
         setIsPolling(false);
         setTxState("awaiting-signature");
-        setWriteError(null);
+        resetWrite();
 
         try {
-            // Plan A: Direct wallet usage via Viem
-            addLog("Attempting Plan A: walletClient...");
-            const hash = await walletClient.writeContract({
+            // Use standard Wagmi hook, but force Gas Limit to skip estimation
+            const hash = await writeContractAsync({
                 address: contractAddress,
                 abi: ABI,
                 functionName: "requestKick",
                 args: [playerMove],
                 value: fee as bigint,
-                gas: BigInt(500000),
-                chain: walletClient.chain,
-                account: address
+                gas: BigInt(500000), // Bumped gas limit to 500k
             });
 
-            addLog(`Plan A Success: ${hash}`);
-            setTxHash(hash);
+            addLog(`Tx submitted: ${hash}`);
             setTxState("confirming");
         } catch (error: any) {
-            addLog(`Plan A Failed: ${error.message}`);
-            console.warn("Plan A failed, attempting Plan B (Raw Request)...", error);
-
-            try {
-                // Plan B: Raw window.ethereum request (Nuclear Option)
-                if (typeof window !== "undefined" && (window as any).ethereum) {
-                    addLog("Attempting Plan B: Raw eth_sendTransaction...");
-
-                    const data = encodeFunctionData({
-                        abi: ABI,
-                        functionName: "requestKick",
-                        args: [playerMove]
-                    });
-
-                    const rawHash = await (window as any).ethereum.request({
-                        method: "eth_sendTransaction",
-                        params: [{
-                            from: address,
-                            to: contractAddress,
-                            data: data,
-                            value: "0x" + (fee as bigint).toString(16), // Hex value
-                            gas: "0x7A120", // 500,000 in hex
-                        }]
-                    });
-
-                    addLog(`Plan B Success: ${rawHash}`);
-                    setTxHash(rawHash as `0x${string}`);
-                    setTxState("confirming");
-                } else {
-                    throw new Error("No window.ethereum found for fallback");
-                }
-            } catch (fallbackError: any) {
-                addLog(`All Plans Failed: ${fallbackError.message}`);
-                console.error("Critical Failure:", fallbackError);
-                setGameState("idle");
-                setTxState("error");
-                setWriteError(fallbackError);
-                throw fallbackError;
-            }
+            addLog(`Kick failed: ${error.message || error}`);
+            console.error("Kick execution failed:", error);
+            setGameState("idle");
+            setTxState("error");
+            throw error;
         }
-    }, [address, fee, contractAddress, walletClient, addLog]);
+    }, [address, fee, contractAddress, writeContractAsync, addLog, resetWrite]);
 
     return {
         gameState,
