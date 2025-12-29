@@ -420,7 +420,7 @@ export default function GameBoard() {
                     <p>TxState: {txState}</p>
                     <div className="mt-2 border-t border-white/10 pt-1">
                         {debugLogs.map((log, i) => (
-                            <div key={i} className="opacity-70">> {log}</div>
+                            <div key={i} className="opacity-70">&gt; {log}</div>
                         ))}
                     </div>
                 </div>
