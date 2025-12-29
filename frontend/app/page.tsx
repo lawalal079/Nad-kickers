@@ -3,7 +3,6 @@
 import React from "react";
 import GameBoard from "@/components/GameBoard";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
-import { injected } from "wagmi/connectors";
 import { Wallet, LogOut, ShieldCheck, User, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -11,7 +10,7 @@ import { toast } from "sonner";
 export default function Home() {
   const [mounted, setMounted] = React.useState(false);
   const { address, isConnected } = useAccount();
-  const { connect } = useConnect();
+  const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
 
   React.useEffect(() => {
@@ -60,9 +59,11 @@ export default function Home() {
               </div>
 
               <button
-                onClick={async () => {
+                onClick={() => {
                   try {
-                    await connect({ connector: injected() });
+                    // Prefer the first available connector (MetaMask Target or Generic)
+                    const connector = connectors[0];
+                    connect({ connector });
                   } catch (err) {
                     console.error("Connection failed:", err);
                   }

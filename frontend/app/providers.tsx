@@ -8,7 +8,10 @@ import { injected } from "wagmi/connectors";
 
 const config = createConfig({
     chains: [monadTestnet],
-    connectors: [injected({ target: "metaMask" })],
+    connectors: [
+        injected({ target: "metaMask" }), // Prioritize MetaMask execution
+        injected(), // Fallback for other wallets/browsers
+    ],
     ssr: true,
     transports: {
         [monadTestnet.id]: http("https://monad-testnet.drpc.org"),
