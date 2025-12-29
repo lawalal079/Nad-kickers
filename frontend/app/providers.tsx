@@ -11,7 +11,7 @@ const config = createConfig({
     connectors: [injected({ target: "metaMask" })],
     ssr: true,
     transports: {
-        [monadTestnet.id]: http(monadTestnet.rpcUrls.default.http[0]),
+        [monadTestnet.id]: http("https://monad-testnet.drpc.org"),
     },
 });
 
