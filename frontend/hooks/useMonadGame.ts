@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
     useAccount,
-    useWriteContract,
+    useAccount,
     useWaitForTransactionReceipt,
     useReadContract,
-    usePublicClient
+    usePublicClient,
+    useWalletClient
 } from "wagmi";
 import { parseEventLogs, type Log } from "viem";
 
@@ -78,9 +79,15 @@ const ABI = [
 export function useMonadGame(contractAddress: `0x${string}`) {
     const { address } = useAccount();
     const publicClient = usePublicClient();
-    const { writeContractAsync, data: txHash, error: writeError, reset: resetWrite } = useWriteContract();
+    const { address } = useAccount();
+    const publicClient = usePublicClient();
+    const { data: walletClient } = useWalletClient();
+
+    // We remove useWriteContract to avoid simulation overhead issues
+    const [writeError, setWriteError] = useState<Error | null>(null);
 
     // Polling State
+    const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
     const [sequenceNumber, setSequenceNumber] = useState<bigint | null>(null);
     const [isPolling, setIsPolling] = useState(false);
     const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -210,6 +217,7 @@ export function useMonadGame(contractAddress: `0x${string}`) {
     const kick = useCallback(async (playerMove: number) => {
         if (!address) throw new Error("Wallet not connected");
         if (!fee) throw new Error("Game fee not loaded. Check your network connection.");
+        if (!walletClient) throw new Error("Wallet not accessible. Please reconnect.");
 
         console.log("Initializing kick...", { playerMove, fee: fee.toString(), contractAddress });
         setGameState("kicking");
@@ -217,26 +225,32 @@ export function useMonadGame(contractAddress: `0x${string}`) {
         setSequenceNumber(null);
         setIsPolling(false);
         setTxState("awaiting-signature");
-        resetWrite();
+        setWriteError(null);
 
         try {
-            const hash = await writeContractAsync({
+            // Direct wallet usage to bypass estimation lag
+            const hash = await walletClient.writeContract({
                 address: contractAddress,
                 abi: ABI,
                 functionName: "requestKick",
                 args: [playerMove],
                 value: fee as bigint,
-                gas: BigInt(300000), // Force gas limit to skip potentially hanging estimateGas
+                gas: BigInt(300000), // Force gas limit
+                chain: walletClient.chain,
+                account: address
             });
+
             console.log("Transaction submitted:", hash);
+            setTxHash(hash); // We need to track this state manually now
             setTxState("confirming");
-        } catch (error) {
+        } catch (error: any) {
             console.error("Kick execution failed:", error);
             setGameState("idle");
             setTxState("error");
+            setWriteError(error);
             throw error;
         }
-    }, [address, fee, contractAddress, writeContractAsync, resetWrite]);
+    }, [address, fee, contractAddress, walletClient]);
 
     return {
         gameState,
