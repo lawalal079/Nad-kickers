@@ -104,7 +104,7 @@ export default function GameBoard() {
                 {/* HUD: Main Title */}
                 <div className="text-center mb-12 w-full">
                     <h1 className="text-5xl font-black italic tracking-tighter text-white drop-shadow-[0_0_20px_rgba(232,121,249,0.7)] uppercase">
-                        MONAD PENALTY
+                        NAD-KICKERS
                     </h1>
                     <div className="flex items-center justify-center gap-4 mt-2">
                         <div className="h-px w-12 bg-gradient-to-r from-transparent to-monad-neon" />

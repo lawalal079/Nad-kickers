@@ -6,6 +6,7 @@ import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { Wallet, LogOut, ShieldCheck, User, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 
 export default function Home() {
   const [mounted, setMounted] = React.useState(false);
@@ -15,6 +16,10 @@ export default function Home() {
 
   React.useEffect(() => {
     setMounted(true);
+    toast("Gmonad!", {
+      description: "Welcome to NAD-KICKERS",
+      duration: 3000,
+    });
   }, []);
 
   if (!mounted) return null;
@@ -31,7 +36,7 @@ export default function Home() {
             className="text-center mb-12"
           >
             <h1 className="text-7xl md:text-9xl font-black italic tracking-tighter uppercase text-white drop-shadow-[0_0_30px_rgba(192,38,211,0.4)]">
-              MONAD <span className="text-monad-purple">PENALTY</span>
+              NAD-<span className="text-monad-purple">KICKERS</span>
             </h1>
             <p className="text-gray-500 font-mono text-[10px] tracking-[0.4em] mt-4 uppercase">Verifiably Fair • Monad Mission X</p>
           </motion.div>
@@ -93,10 +98,6 @@ export default function Home() {
               animate={{ x: 0, opacity: 1 }}
               className="flex items-center gap-3"
             >
-              <div className="flex items-center gap-2 px-4 py-1.5 bg-monad-purple/10 border border-monad-purple/30 rounded-full">
-                <Sparkles className="w-3 h-3 text-monad-purple" />
-                <span className="text-[10px] font-black italic uppercase tracking-widest text-white/80">Total Points: 1250</span>
-              </div>
 
               <button
                 onClick={() => disconnect()}

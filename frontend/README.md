@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ⚽ NAD-KICKERS: On-Chain Penalty Shootout
 
-## Getting Started
+**NAD-KICKERS** is a high-octane 3D penalty shootout game built on the **Monad Testnet**. It combines immersive Three.js visuals with the verifiable fairness of blockchain technology.
 
-First, run the development server:
+## 🛡️ Verifiably Fair Gameplay
+NAD-KICKERS uses **Pyth Entropy** to ensure that every goalie move, wind condition, and game outcome is generated with absolute randomness. This means neither the player nor the developer can predict or manipulate the result—ensuring a 100% fair competitive environment on Monad.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🚀 Key Features
+- **3D Interactive Arena**: A deep-sky stadium experience powered by Three.js.
+- **On-Chain Stats**: Your streaks, levels, and achievements are saved directly to the Monad blockchain.
+- **"On Fire" Mechanic**: High streaks unlock cinematic visual effects.
+- **Fairness Feed**: Real-time transparency into the VRF (Verifiable Randomness Function) process.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🛠️ Technology Stack
+- **Frontend**: Next.js, Tailwind CSS, Framer Motion
+- **3D Graphics**: Three.js, React Three Fiber
+- **Blockchain**: Monad Testnet, Wagmi, Viem
+- **Oracle**: Pyth Entropy
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🏃 Getting Started
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Prerequisites
+- Node.js (v18+)
+- pnpm (recommended)
+- A wallet with Monad Testnet tokens
 
-## Learn More
+### Installation
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   pnpm install
+   ```
+3. Set up environment variables in `.env`:
+   ```bash
+   NEXT_PUBLIC_CONTRACT_ADDRESS=your_contract_address
+   ```
+4. Run the development server:
+   ```bash
+   pnpm run dev
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+## 📜 Smart Contract
+The game logic is handled by the `PenaltyShootout` contract, which interacts with the Pyth Entropy oracle to provide tamper-proof outcomes.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+*Built for Monad Mission X // GMONAD!*
