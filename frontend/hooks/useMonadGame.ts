@@ -6,7 +6,7 @@ import {
     usePublicClient,
     useWalletClient
 } from "wagmi";
-import { parseEventLogs, type Log } from "viem";
+import { parseEventLogs, encodeFunctionData, type Log } from "viem";
 
 export const PENALTY_SHOOTOUT_ABI = [
     "function requestKick(uint8 playerMove) external payable",
@@ -231,30 +231,64 @@ export function useMonadGame(contractAddress: `0x${string}`) {
         setWriteError(null);
 
         try {
-            // Direct wallet usage to bypass estimation lag
+            // Plan A: Direct wallet usage via Viem
+            addLog("Attempting Plan A: walletClient...");
             const hash = await walletClient.writeContract({
                 address: contractAddress,
                 abi: ABI,
                 functionName: "requestKick",
                 args: [playerMove],
                 value: fee as bigint,
-                gas: BigInt(500000), // Bumped gas limit to 500k
+                gas: BigInt(500000),
                 chain: walletClient.chain,
                 account: address
             });
 
-            addLog(`Tx submitted: ${hash}`);
+            addLog(`Plan A Success: ${hash}`);
             setTxHash(hash);
             setTxState("confirming");
         } catch (error: any) {
-            addLog(`Kick failed: ${error.message || error}`);
-            console.error("Kick execution failed:", error);
-            setGameState("idle");
-            setTxState("error");
-            setWriteError(error);
-            throw error;
+            addLog(`Plan A Failed: ${error.message}`);
+            console.warn("Plan A failed, attempting Plan B (Raw Request)...", error);
+
+            try {
+                // Plan B: Raw window.ethereum request (Nuclear Option)
+                if (typeof window !== "undefined" && (window as any).ethereum) {
+                    addLog("Attempting Plan B: Raw eth_sendTransaction...");
+
+                    const data = encodeFunctionData({
+                        abi: ABI,
+                        functionName: "requestKick",
+                        args: [playerMove]
+                    });
+
+                    const rawHash = await (window as any).ethereum.request({
+                        method: "eth_sendTransaction",
+                        params: [{
+                            from: address,
+                            to: contractAddress,
+                            data: data,
+                            value: "0x" + (fee as bigint).toString(16), // Hex value
+                            gas: "0x7A120", // 500,000 in hex
+                        }]
+                    });
+
+                    addLog(`Plan B Success: ${rawHash}`);
+                    setTxHash(rawHash as `0x${string}`);
+                    setTxState("confirming");
+                } else {
+                    throw new Error("No window.ethereum found for fallback");
+                }
+            } catch (fallbackError: any) {
+                addLog(`All Plans Failed: ${fallbackError.message}`);
+                console.error("Critical Failure:", fallbackError);
+                setGameState("idle");
+                setTxState("error");
+                setWriteError(fallbackError);
+                throw fallbackError;
+            }
         }
-    }, [address, fee, contractAddress, walletClient]);
+    }, [address, fee, contractAddress, walletClient, addLog]);
 
     return {
         gameState,
