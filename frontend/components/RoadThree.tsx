@@ -172,6 +172,16 @@ function RoadMesh() {
 }
 
 export default function RoadThree({ gameState, lastResult, playerMove, isOnFire }: Ball3DProps) {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted) {
+        return <div className="absolute inset-0 z-0 bg-[#0E0C15]" />;
+    }
+
     return (
         <div className="absolute inset-0 z-0 bg-[#0E0C15]">
             <Canvas
