@@ -38,8 +38,8 @@ export function Providers({ children }: { children: ReactNode }) {
                     ethereum: {
                         createOnLogin: "all-users",
                     },
-                    // Auto-sign transactions without popups
-                    requireUserPasswordOnCreate: false,
+                    // Auto-sign transactions without popups (Replaces noPromptOnSignature)
+                    showWalletUIs: false,
                 },
             }}
         >
