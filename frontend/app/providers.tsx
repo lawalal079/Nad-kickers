@@ -20,9 +20,23 @@ const wagmiConfig = createConfig({
 });
 
 export function Providers({ children }: { children: ReactNode }) {
+    const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+
+    // During build or if env vars are missing, we skip the Privy wrapper to prevent crash
+    // The app will still need the ID in production to function correctly
+    if (!appId) {
+        return (
+            <QueryClientProvider client={queryClient}>
+                <WagmiProvider config={wagmiConfig}>
+                    {children}
+                </WagmiProvider>
+            </QueryClientProvider>
+        );
+    }
+
     return (
         <PrivyProvider
-            appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || ""}
+            appId={appId}
             config={{
                 // Email-only login - all users get embedded wallets
                 loginMethods: ["email"],
