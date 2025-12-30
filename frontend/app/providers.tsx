@@ -35,9 +35,11 @@ export function Providers({ children }: { children: ReactNode }) {
                 defaultChain: monadTestnet,
                 embeddedWallets: {
                     // Force embedded wallet for ALL users
-                    createOnLogin: "all-users",
+                    ethereum: {
+                        createOnLogin: "all-users",
+                    },
                     // Auto-sign transactions without popups
-                    noPromptOnSignature: true,
+                    requireUserPasswordOnCreate: false,
                 },
             }}
         >
