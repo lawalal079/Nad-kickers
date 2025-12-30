@@ -12,6 +12,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import confetti from "canvas-confetti";
 import { Shield, Zap, Terminal, RefreshCcw, Flame, Trophy, Wind as WindIcon, AlertTriangle } from "lucide-react";
+import { formatEther } from "viem";
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -20,7 +21,7 @@ function cn(...inputs: ClassValue[]) {
 const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "") as `0x${string}`;
 
 export default function GameBoard() {
-    const { gameState, lastResult, stats, kick, fee, level, multiplier, sequenceNumber, writeError, txState, debugLogs, txHash } = useMonadGame(CONTRACT_ADDRESS);
+    const { gameState, lastResult, stats, kick, fee, balance, level, multiplier, sequenceNumber, writeError, txState, debugLogs, txHash } = useMonadGame(CONTRACT_ADDRESS);
     const { user, authenticated, ready } = usePrivy();
     const { wallets } = useWallets();
     const { switchChain, isPending: isSwitching } = useSwitchChain();
@@ -42,6 +43,8 @@ export default function GameBoard() {
     const isWrongChain = isConnected && !isSyncing && activeWallet &&
         activeWallet.chainId !== `eip155:${monadTestnet.id}` &&
         activeWallet.chainId !== String(monadTestnet.id);
+
+    const hasLowBalance = !!(isConnected && !isSyncing && balance && fee && balance.value < (fee as bigint));
 
     // Level Tiers
     const levelTier = level >= 7 ? "Legend" : level >= 4 ? "Pro" : "Rookie";
@@ -175,6 +178,16 @@ export default function GameBoard() {
                         >
                             {isSwitching ? "Switching..." : "Switch Network"}
                         </button>
+                    </div>
+                )}
+
+                {/* Insufficient Balance Warning Banner */}
+                {hasLowBalance && !isWrongChain && (
+                    <div className="w-full mb-6 p-4 bg-orange-500/20 border border-orange-500/50 rounded-lg flex items-center gap-3">
+                        <AlertTriangle className="w-5 h-5 text-orange-400" />
+                        <span className="text-orange-300 font-medium text-sm">
+                            Insufficient MON! You need more funds to play. (Current: {balance ? Number(formatEther(balance.value)).toFixed(4) : "0.0000"} {balance?.symbol})
+                        </span>
                     </div>
                 )}
 
@@ -410,14 +423,14 @@ export default function GameBoard() {
                             onMouseEnter={() => setHoveredZone(btn.val)}
                             onMouseLeave={() => setHoveredZone(null)}
                             onClick={() => handleKick(btn.val)}
-                            disabled={(gameState !== "idle" && gameState !== "result") || isSyncing || isWrongChain}
+                            disabled={(gameState !== "idle" && gameState !== "result") || isSyncing || isWrongChain || hasLowBalance}
                             className={cn(
                                 "pill-button flex-1 max-w-[180px] text-base transition-all py-5 border-2",
                                 hoveredZone === btn.val ? "active scale-110" : "bg-black/60 border-white/10 opacity-60",
-                                (gameState === "kicking" || gameState === "processing" || isSyncing) && "opacity-20 cursor-not-allowed"
+                                (gameState === "kicking" || gameState === "processing" || isSyncing || hasLowBalance) && "opacity-20 cursor-not-allowed"
                             )}
                         >
-                            {isSyncing ? "SYNCING..." : btn.label}
+                            {isSyncing ? "SYNCING..." : hasLowBalance ? "FUND WALLET" : btn.label}
                         </button>
                     ))}
                 </div>

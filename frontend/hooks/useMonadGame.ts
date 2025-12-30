@@ -4,6 +4,7 @@ import {
     useWaitForTransactionReceipt,
     useReadContract,
     usePublicClient,
+    useBalance,
 } from "wagmi";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { parseEventLogs, type Log, createWalletClient, custom } from "viem";
@@ -118,11 +119,16 @@ export function useMonadGame(contractAddress: `0x${string}`) {
     });
 
     const { data: stats, refetch: refetchStats } = useReadContract({
-        address: contractAddress,
+        address: contractAddress as `0x${string}`,
         abi: ABI,
         functionName: "playerStats",
-        args: [address as `0x${string}`],
+        args: address ? [address] : undefined,
         query: { enabled: !!address },
+    });
+
+    const { data: balance, refetch: refetchBalance } = useBalance({
+        address: address,
+        query: { enabled: !!address && ready },
     });
 
     // WaitForTransactionReceipt to get the sequence number
@@ -231,6 +237,14 @@ export function useMonadGame(contractAddress: `0x${string}`) {
         if (!address) throw new Error("Wallet not connected");
         if (!fee) throw new Error("Game fee not loaded. Check your network connection.");
 
+        // Proactive Balance Check
+        const currentBalance = balance?.value || 0n;
+        if (currentBalance < (fee as bigint)) {
+            const needed = (Number(fee) / 1e18).toFixed(4);
+            const actual = (Number(currentBalance) / 1e18).toFixed(4);
+            throw new Error(`Insufficient balance. You need ${needed} MON, but only have ${actual} MON. Please fund your wallet.`);
+        }
+
         addLog(`Init kick. Move: ${playerMove}, Fee: ${fee.toString()}`);
         setGameState("kicking");
         setLastResult(null);
@@ -283,6 +297,7 @@ export function useMonadGame(contractAddress: `0x${string}`) {
         stats,
         kick,
         fee,
+        balance,
         level,
         multiplier,
         sequenceNumber,
