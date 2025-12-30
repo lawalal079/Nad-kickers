@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useMonadGame } from "@/hooks/useMonadGame";
-import { useAccount, useSwitchChain } from "wagmi";
+import { useSwitchChain } from "wagmi";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { toast } from "sonner";
 import { monadTestnet } from "@/constants/networks";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,26 +21,54 @@ const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "") as `0x
 
 export default function GameBoard() {
     const { gameState, lastResult, stats, kick, fee, level, multiplier, sequenceNumber, writeError, txState, debugLogs, txHash } = useMonadGame(CONTRACT_ADDRESS);
-    const { chain, isConnected } = useAccount();
+    const { user, authenticated, ready } = usePrivy();
+    const { wallets } = useWallets();
     const { switchChain, isPending: isSwitching } = useSwitchChain();
+
+    // 1. Find the connected Privy wallet to get the chainId
+    const embeddedWallet = wallets.find(w => w.walletClientType === "privy");
+    const activeWallet = embeddedWallet || wallets[0];
+    const isConnected = ready && authenticated;
+    const isSyncing = authenticated && !embeddedWallet; // Logged in but wallet not yet synced to array
 
     const [goaliePos, setGoaliePos] = useState<"left" | "center" | "right">("center");
     const [hoveredZone, setHoveredZone] = useState<number | null>(1); // Default to center
     const [lastPlayerMove, setLastPlayerMove] = useState<number | null>(null);
 
     const isOnFire = stats?.[3];
-    const isWrongChain = isConnected && chain?.id !== monadTestnet.id;
+
+    // Robust chain check: handles both "eip155:10143" and "10143"
+    // Only show "Wrong Network" if we actually HAVE a wallet to check against
+    const isWrongChain = isConnected && !isSyncing && activeWallet &&
+        activeWallet.chainId !== `eip155:${monadTestnet.id}` &&
+        activeWallet.chainId !== String(monadTestnet.id);
 
     // Level Tiers
     const levelTier = level >= 7 ? "Legend" : level >= 4 ? "Pro" : "Rookie";
     const tierColor = level >= 7 ? "text-yellow-400" : level >= 4 ? "text-blue-400" : "text-green-400";
 
     // Auto-prompt to switch chain
-    const handleSwitchChain = () => {
-        switchChain({ chainId: monadTestnet.id });
+    const handleSwitchChain = async () => {
+        if (activeWallet && activeWallet.switchChain) {
+            try {
+                await activeWallet.switchChain(monadTestnet.id);
+            } catch (e) {
+                console.error("Failed to switch chain via Privy:", e);
+                // Fallback to Wagmi switch if needed
+                switchChain({ chainId: monadTestnet.id });
+            }
+        } else {
+            switchChain({ chainId: monadTestnet.id });
+        }
     };
 
     const handleKick = async (move: number) => {
+        if (isSyncing) {
+            toast.error("Finishing wallet setup...", {
+                description: "Just a second while we sync your Privy wallet."
+            });
+            return;
+        }
         try {
             setLastPlayerMove(move);
             await kick(move);
@@ -381,14 +410,14 @@ export default function GameBoard() {
                             onMouseEnter={() => setHoveredZone(btn.val)}
                             onMouseLeave={() => setHoveredZone(null)}
                             onClick={() => handleKick(btn.val)}
-                            disabled={gameState !== "idle" && gameState !== "result"}
+                            disabled={(gameState !== "idle" && gameState !== "result") || isSyncing || isWrongChain}
                             className={cn(
                                 "pill-button flex-1 max-w-[180px] text-base transition-all py-5 border-2",
                                 hoveredZone === btn.val ? "active scale-110" : "bg-black/60 border-white/10 opacity-60",
-                                (gameState === "kicking" || gameState === "processing") && "opacity-20 cursor-not-allowed"
+                                (gameState === "kicking" || gameState === "processing" || isSyncing) && "opacity-20 cursor-not-allowed"
                             )}
                         >
-                            {btn.label}
+                            {isSyncing ? "SYNCING..." : btn.label}
                         </button>
                     ))}
                 </div>
@@ -396,9 +425,9 @@ export default function GameBoard() {
                 {/* Footer Info (High Performance Look) */}
                 <div className="w-full mt-12 flex justify-between items-center px-8">
                     <div className="flex items-center gap-4 bg-white/5 px-6 py-2 rounded-2xl border border-white/5">
-                        <RefreshCcw className={cn("w-4 h-4 text-monad-neon", (gameState === "processing" || gameState === "kicking" || txState === "confirming") && "animate-spin")} />
+                        <RefreshCcw className={cn("w-4 h-4 text-monad-neon", (gameState === "processing" || gameState === "kicking" || txState === "confirming" || isSyncing) && "animate-spin")} />
                         <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-300">
-                            {txState === "awaiting-signature" ? "SIGN TRANSACTION" :
+                            {isSyncing ? "SYNCING WALLET..." : txState === "awaiting-signature" ? "SIGN TRANSACTION" :
                                 txState === "confirming" ? "CONFIRMING on-chain" :
                                     gameState === "idle" ? "ARCADE READY" :
                                         gameState === "processing" ? "VERIFYING ENTROPY" : "SYNCING DATA"}
@@ -416,7 +445,7 @@ export default function GameBoard() {
                 {/* Diagnostics Panel (Visible on hover of footer) */}
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 opacity-0 hover:opacity-100 transition-opacity p-2 bg-black/80 rounded text-[8px] font-mono text-gray-500 pointer-events-auto">
                     <p>Contract: {CONTRACT_ADDRESS.slice(0, 6)}...{CONTRACT_ADDRESS.slice(-4)}</p>
-                    <p>Network: {chain?.id} ({isWrongChain ? "Wrong" : "OK"})</p>
+                    <p>Network: {activeWallet?.chainId || "Unknown"} ({isWrongChain ? "Wrong" : "OK"})</p>
                     <p>TxState: {txState}</p>
                     <div className="mt-2 border-t border-white/10 pt-1">
                         {debugLogs.map((log, i) => (

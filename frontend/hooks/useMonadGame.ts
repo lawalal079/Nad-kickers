@@ -1,12 +1,13 @@
+// Sync v1.1.2 - Force Rebuild for ReferenceError fix
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
-    useAccount,
-    useWriteContract,
     useWaitForTransactionReceipt,
     useReadContract,
-    usePublicClient
+    usePublicClient,
 } from "wagmi";
-import { parseEventLogs, type Log } from "viem";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { parseEventLogs, type Log, createWalletClient, custom } from "viem";
+import { monadTestnet } from "@/constants/networks";
 
 export const PENALTY_SHOOTOUT_ABI = [
     "function requestKick(uint8 playerMove) external payable",
@@ -76,9 +77,21 @@ const ABI = [
 ] as const;
 
 export function useMonadGame(contractAddress: `0x${string}`) {
-    const { address } = useAccount();
+    const { user, ready, authenticated } = usePrivy();
+    const { wallets } = useWallets();
     const publicClient = usePublicClient();
-    const { writeContractAsync, data: txHash, error: writeError, reset: resetWrite } = useWriteContract();
+
+    // We maintain txHash and txState locally since we are bypassing useWriteContract
+    const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
+    const [writeError, setWriteError] = useState<Error | null>(null);
+
+    // Resolve the latest state directly from hooks
+    const address = (user?.wallet?.address || wallets.find(w => w.walletClientType === "privy")?.address) as `0x${string}` | undefined;
+
+    const resetWrite = useCallback(() => {
+        setTxHash(undefined);
+        setWriteError(null);
+    }, []);
 
     // Polling State
     // txHash comes from useWriteContract now
@@ -108,7 +121,7 @@ export function useMonadGame(contractAddress: `0x${string}`) {
         address: contractAddress,
         abi: ABI,
         functionName: "playerStats",
-        args: [address!],
+        args: [address as `0x${string}`],
         query: { enabled: !!address },
     });
 
@@ -227,26 +240,42 @@ export function useMonadGame(contractAddress: `0x${string}`) {
         resetWrite();
 
         try {
-            // Use standard Wagmi hook, but force Gas Limit to skip estimation
-            const hash = await writeContractAsync({
-                address: contractAddress,
+            // Re-find the wallet inside the callback to ensure we have the LATEST state
+            // This fixes the "Privy embedded wallet not found" on first click
+            const currentWallet = wallets.find(w => w.walletClientType === "privy");
+
+            if (!currentWallet) {
+                addLog("Error: Privy wallet not ready yet. Please wait a second and try again.");
+                throw new Error("Privy embedded wallet not found. Please ensure you are logged in correctly.");
+            }
+
+            const provider = await currentWallet.getEthereumProvider();
+            const walletClient = createWalletClient({
+                chain: monadTestnet,
+                transport: custom(provider)
+            });
+
+            const hash = await walletClient.writeContract({
+                address: contractAddress as `0x${string}`,
                 abi: ABI,
                 functionName: "requestKick",
                 args: [playerMove],
                 value: fee as bigint,
-                gas: BigInt(500000), // Bumped gas limit to 500k
+                account: address as `0x${string}`,
             });
 
-            addLog(`Tx submitted: ${hash}`);
+            addLog(`Tx submitted via Privy-Viem: ${hash}`);
+            setTxHash(hash);
             setTxState("confirming");
         } catch (error: any) {
             addLog(`Kick failed: ${error.message || error}`);
             console.error("Kick execution failed:", error);
+            setWriteError(error);
             setGameState("idle");
             setTxState("error");
             throw error;
         }
-    }, [address, fee, contractAddress, writeContractAsync, addLog, resetWrite]);
+    }, [address, fee, contractAddress, wallets, addLog, resetWrite]);
 
     return {
         gameState,
